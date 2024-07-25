@@ -36,10 +36,10 @@ def load_data(caminho):
 
 # Carregar e armazenar dados no session_state se ainda não estiverem lá
 if "df_exportacao" not in st.session_state:
-    st.session_state["df_exportacao"] = load_data('df_exp.parquet')
+    st.session_state["df_exportacao"] = load_data('dados/df_exp.parquet')
 
 if 'df_importacao' not in st.session_state:
-    st.session_state['df_importacao'] = load_data('df_imp.parquet')
+    st.session_state['df_importacao'] = load_data('dados/df_imp.parquet')
 
 # Acessar os dados do session_state
 df_exp = st.session_state["df_exportacao"]
@@ -48,6 +48,10 @@ df_imp = st.session_state['df_importacao']
 # Extrair o menor / maior Ano do dataset
 ano_inicial = df_exp['CO_ANO'].min()
 ano_final = df_exp['CO_ANO'].max()
+
+# Ajustes nos dataframes
+df_exp['CO_ANO'] = df_exp['CO_ANO'].astype(int)
+df_imp['CO_ANO'] = df_imp['CO_ANO'].astype(int)
 
 #-----------------------------------------------------------------------------------------------------------------#
 # Criando dataframe com os dados da Balança Comercial 
@@ -88,18 +92,21 @@ df_grupo_merged = df_grupo_exp.merge(df_grupo_imp,
 # Adicionar a opção "Todos os Anos" à lista de anos
 ano = ["Todos"] + df_ano_mes_merged['ANO'].unique().tolist()
 
-#ano = df_ano_mes_merged['ANO'].unique().tolist()
- 
-st.sidebar.header('Filtro 1')
-#ano_selecionado = st.sidebar.selectbox("Selecione o Ano", ano)
+
+#st.sidebar.header('Filtro 1')
 ano_selecionado = st.sidebar.selectbox("Selecione o Ano", ano)
 
 # Filtrar o DataFrame
 if ano_selecionado == "Todos":
     df_ano_mes_merged_filtered = df_ano_mes_merged
 else:
-    #df_ano_mes_merged_filtered = df_ano_mes_merged[df_ano_mes_merged['ANO'] == ano_selecionado]
     df_ano_mes_merged_filtered = df_ano_mes_merged[df_ano_mes_merged['ANO'].isin([ano_selecionado])]
+
+# Filtrar o DataFrame
+if ano_selecionado == "Todos":
+    df_exp_filtered = df_exp
+else:
+    df_exp_filtered = df_exp[df_exp['CO_ANO'].isin([ano_selecionado])]
 
 #-----------------------------------------------------------------------------------------------------------------#
 # Graficos
@@ -120,14 +127,14 @@ perc_var_exp_imp = round(df_ano_mes_merged_filtered['%_VAR_EXPxIMP'].sum(),2)
 perc_var_exp_imp = f"{perc_var_exp_imp:,.2f}%"
 saldo_balanca = df_ano_mes_merged_filtered['BALANÇA_COMERCIAL'].sum()
 saldo_balanca = f"USD {saldo_balanca / 1e9:,.2f}Bi"
-exp_total = df_exp['VL_FOB'].sum()
+exp_total = df_exp_filtered['VL_FOB'].sum()
 exp_total = f"USD {exp_total / 1e9:,.2f}Bi"
-qtde_paises_exp = df_exp['NO_PAIS'].nunique()
+qtde_paises_exp = df_exp_filtered['NO_PAIS'].nunique()
 #-----------------------------------------------------------------------------------------------------------------#
 # Tabelas
 
 df_balanca_grupo = df_grupo_merged.groupby(['NO_NCM_POR']).agg({'VL_FOB_EXP': 'sum', 'VL_FOB_IMP': 'sum'}).reset_index()
-df_balanca_grupo.sort_values(by='VL_FOB_EXP', ascending=False)
+df_balanca_grupo = df_balanca_grupo.sort_values(by='VL_FOB_EXP', ascending=False)
 
 #-----------------------------------------------------------------------------------------------------------------#
 # Main
@@ -138,7 +145,7 @@ header = st.container()
 with header:
     st.image('icones/brasao.png', width=250)
     st.title('Bem vindo ao projeto COMEX - Balança Comercial')
-    st.text('Este projeto tem por finalidade ....')
+    st.text('Aplicação web interativa, construída com Streamlit e Python, para visualização e análise da balança comercial brasileira.')
 
 st.divider()
 
@@ -178,6 +185,6 @@ with col5:
 
 st.divider()
 
-st.subheader('Tabela aberta por grupo vs Valor USD (EXP/IMP)')
+st.subheader('Tabela aberta por grupo vs Valor USD (EXP/IMP) - Periodo total')
 st.dataframe(df_balanca_grupo, use_container_width=True, hide_index=True)
 
